@@ -7,7 +7,7 @@ export async function getImages(value, currentPage, signal) {
     signal,
     params: {
       q: value,
-      key: '35861732-765d2ea3a6aad5336048671b3',
+      key: '38401804-21f7b17662c0023355f3fd6bf',
       page: currentPage,
       image_type: 'photo',
       orientation: 'horizontal',
