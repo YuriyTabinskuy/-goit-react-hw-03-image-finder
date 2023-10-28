@@ -1,25 +1,29 @@
 import { Component } from 'react';
-import { Button } from '../Button/Button';
-import { ImageGallery } from '../ImageGallery/ImageGallery';
-import { Searchbar } from '../Searchbar/Searchbar';
-import * as API from 'services/api';
-import { Loader } from '../Loader/Loader';
-import { AppWrapper } from './App.styled';
-import { Error } from 'components/Error/Error';
+import { ToastContainer, toast } from 'react-toastify';
+import { getImagesAPI } from 'services/api';
+import { normalizeHits } from 'utils/normalizeHits';
+import { ImageGallery } from 'components/ImageGallery';
+import { Button } from 'components/Button';
+import { Searchbar } from 'components/Searchbar';
+import { Loader } from 'components/Loader';
+import { AppWrapper, Error } from './App.styled';
+import 'react-toastify/dist/ReactToastify.css';
 
 export class App extends Component {
   abortCtrl;
 
   state = {
-    searchValue: '',
     images: [],
+    query: '',
     currentPage: 1,
-    status: 'idle',
+    error: null,
+    isLoading: false,
+    isLastPage: false,
   };
 
   componentDidUpdate(_, prevState) {
     if (
-      prevState.searchValue !== this.state.searchValue ||
+      prevState.query !== this.state.query ||
       prevState.currentPage !== this.state.currentPage
     ) {
       this.getImages();
@@ -27,7 +31,7 @@ export class App extends Component {
   }
 
   getImages = async () => {
-    const { currentPage, searchValue } = this.state;
+    const { query, currentPage } = this.state;
 
     if (this.abortCtrl) {
       this.abortCtrl.abort();
@@ -36,82 +40,82 @@ export class App extends Component {
     this.abortCtrl = new AbortController();
 
     try {
-      this.setState({ status: 'pending' });
+      this.setState({ isLoading: true });
 
-      const images = await API.getImages(
-        searchValue,
+      const data = await getImagesAPI(
+        query,
         currentPage,
         this.abortCtrl.signal
       );
 
-      if (images.hits.length === 0) {
-        throw new Error();
+      if (data.hits.length === 0) {
+        return toast.info('Sorry, no images for your query...', {
+          position: toast.POSITION.TOP_RIGHT,
+        });
+      } else if (currentPage === 1) {
+        toast.success('Wow! We found some images for you!', {
+          position: toast.POSITION.TOP_RIGHT,
+        });
+      } else {
+        toast.success('Wow! We found some more images for you!', {
+          position: toast.POSITION.TOP_RIGHT,
+        });
       }
 
+      const normalizedHits = normalizeHits(data.hits);
+
       this.setState(prevState => ({
-        images: [...prevState.images, ...images.hits],
-        status: 'resolved',
+        images: [...prevState.images, ...normalizedHits],
+        isLastPage:
+          prevState.images.length + normalizedHits.length >= data.totalHits,
+        error: null,
       }));
     } catch (error) {
-      this.setState({
-        status: 'rejected',
-      });
+      if (error.code !== 'ERR_CANCELED') {
+        this.setState({ error: error.message });
+      }
+    } finally {
+      this.setState({ isLoading: false });
     }
   };
 
-  onSubmit = searchValue => {
-    if (this.state.searchValue === searchValue) {
+  handleSearchSubmit = query => {
+    if (this.state.query === query) {
       return;
     }
 
     this.setState({
-      searchValue,
+      query,
       currentPage: 1,
       images: [],
+      error: null,
+      isLastPage: false,
     });
   };
 
-  onBtnClick = () => {
+  loadMore = () => {
     this.setState(prevState => ({
       currentPage: prevState.currentPage + 1,
     }));
   };
 
   render() {
-    const { status, images } = this.state;
-
-    if (status === 'pending') {
-      return (
-        <AppWrapper>
-          <Searchbar onSubmit={this.onSubmit} />
-          <ImageGallery images={images} />
-          <Loader />
-        </AppWrapper>
-      );
-    }
-
-    if (status === 'resolved') {
-      return (
-        <AppWrapper>
-          <Searchbar onSubmit={this.onSubmit} />
-          <ImageGallery images={images} />
-          <Button onClick={this.onBtnClick} />
-        </AppWrapper>
-      );
-    }
-
-    if (status === 'rejected') {
-      return (
-        <AppWrapper>
-          <Searchbar onSubmit={this.onSubmit} />
-          <Error />
-        </AppWrapper>
-      );
-    }
+    const { images, isLoading, error, isLastPage } = this.state;
 
     return (
       <AppWrapper>
-        <Searchbar onSubmit={this.onSubmit} />
+        <ToastContainer autoClose={2500} />
+        <Searchbar onSubmit={this.handleSearchSubmit} />
+
+        {error && <Error>Error: {error}</Error>}
+
+        <ImageGallery images={images} />
+
+        {isLoading && <Loader />}
+
+        {!isLoading && images.length > 0 && !isLastPage && (
+          <Button onClick={this.loadMore} />
+        )}
       </AppWrapper>
     );
   }

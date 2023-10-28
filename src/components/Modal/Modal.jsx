@@ -1,4 +1,5 @@
 import ReactModal from 'react-modal';
+import PropTypes from 'prop-types';
 import { disableBodyScroll, enableBodyScroll } from 'body-scroll-lock';
 
 const customStyles = {
@@ -28,7 +29,7 @@ const customStyles = {
 
 ReactModal.setAppElement('#root');
 
-export const Modal = ({ isOpen, largeImage, tags, onClose }) => {
+export const Modal = ({ isOpen, largeImageURL, tags, onClose }) => {
   return (
     <ReactModal
       style={customStyles}
@@ -37,7 +38,14 @@ export const Modal = ({ isOpen, largeImage, tags, onClose }) => {
       onAfterOpen={() => disableBodyScroll(document)}
       onAfterClose={() => enableBodyScroll(document)}
     >
-      <img src={largeImage} alt={tags} />
+      <img src={largeImageURL} alt={tags} />
     </ReactModal>
   );
+};
+
+Modal.propTypes = {
+  largeImageURL: PropTypes.string.isRequired,
+  tags: PropTypes.string.isRequired,
+  onClose: PropTypes.func.isRequired,
+  isOpen: PropTypes.bool.isRequired,
 };
